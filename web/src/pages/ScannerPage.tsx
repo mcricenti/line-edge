@@ -4,8 +4,6 @@ import { SPORT_PRESETS, fetchOdds } from "../lib/odds";
 import { Opportunity, scanAll } from "../lib/mispricing";
 import { strategies } from "../data/strategies";
 
-const KEY_STORAGE = "line-edge-odds-api-key";
-
 function formatWhen(iso: string) {
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -24,9 +22,6 @@ function formatPrice(n: number) {
 }
 
 export function ScannerPage() {
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem(KEY_STORAGE) ?? ""
-  );
   const [sport, setSport] = useState<string>("upcoming");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +39,7 @@ export function ScannerPage() {
     setError(null);
     setLoading(true);
     try {
-      const key = apiKey.trim();
-      if (!key) throw new Error("Add your The Odds API key to scan live lines.");
-      localStorage.setItem(KEY_STORAGE, key);
       const { events, remaining, used } = await fetchOdds({
-        apiKey: key,
         sport,
         regions: "us,us2,eu",
         markets: "h2h,spreads,totals",
@@ -56,7 +47,7 @@ export function ScannerPage() {
       setEventCount(events.length);
       setOps(scanAll(events));
       setQuota(
-        remaining != null
+        remaining
           ? `API quota: ${remaining} remaining${used ? ` (${used} used)` : ""}`
           : null
       );
@@ -75,21 +66,12 @@ export function ScannerPage() {
         <p>
           Pulls moneyline, spreads, and totals from US + EU books (including
           Pinnacle) via The Odds API, then flags arbitrage, soft-vs-sharp gaps,
-          and best-price edges.
+          and best-price edges. API key is stored as a Worker secret ? not in
+          the browser.
         </p>
       </header>
 
-      <div className="scan-panel">
-        <label className="field">
-          <span>The Odds API key</span>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Get a free key at the-odds-api.com"
-            autoComplete="off"
-          />
-        </label>
+      <div className="scan-panel scan-panel-simple">
         <label className="field">
           <span>Sport</span>
           <select value={sport} onChange={(e) => setSport(e.target.value)}>
@@ -101,17 +83,9 @@ export function ScannerPage() {
           </select>
         </label>
         <button className="btn primary" onClick={runScan} disabled={loading}>
-          {loading ? "Scanning…" : "Scan lines"}
+          {loading ? "Scanning?" : "Scan lines"}
         </button>
       </div>
-
-      <p className="hint">
-        Free API keys:{" "}
-        <a href="https://the-odds-api.com/" target="_blank" rel="noreferrer">
-          the-odds-api.com
-        </a>
-        . Key stays in your browser localStorage only.
-      </p>
 
       {error && <div className="banner error">{error}</div>}
       {quota && <p className="muted">{quota}</p>}

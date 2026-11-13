@@ -311,6 +311,10 @@ a {
   border: 1px solid var(--line);
 }
 
+.scan-panel-simple {
+  grid-template-columns: 1fr auto;
+}
+
 .field {
   display: flex;
   flex-direction: column;

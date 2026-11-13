@@ -61,34 +61,47 @@ export function noVigProbs(decimals: number[]): number[] {
   return raw.map((p) => p / sum);
 }
 
-export async function fetchSports(apiKey: string): Promise<Sport[]> {
-  const res = await fetch(`${ODDS_BASE}/sports/?apiKey=${encodeURIComponent(apiKey)}`);
-  if (!res.ok) throw new Error(await errorText(res));
-  return res.json();
-}
-
 export async function fetchOdds(opts: {
-  apiKey: string;
   sport: string;
   regions?: string;
   markets?: string;
   oddsFormat?: "decimal" | "american";
+  /** Optional override; production uses the Worker proxy + secret. */
+  apiKey?: string;
 }): Promise<{ events: EventOdds[]; remaining?: string; used?: string }> {
-  const params = new URLSearchParams({
-    apiKey: opts.apiKey,
-    regions: opts.regions ?? "us,us2,eu",
-    markets: opts.markets ?? "h2h,spreads,totals",
-    oddsFormat: opts.oddsFormat ?? "decimal",
-  });
+  const regions = opts.regions ?? "us,us2,eu";
+  const markets = opts.markets ?? "h2h,spreads,totals";
+  const oddsFormat = opts.oddsFormat ?? "decimal";
+
+  if (opts.apiKey?.trim()) {
+    const params = new URLSearchParams({
+      apiKey: opts.apiKey.trim(),
+      regions,
+      markets,
+      oddsFormat,
+    });
+    const res = await fetch(
+      `${ODDS_BASE}/sports/${encodeURIComponent(opts.sport)}/odds?${params}`
+    );
+    if (!res.ok) throw new Error(await errorText(res));
+    const events = (await res.json()) as EventOdds[];
+    return {
+      events,
+      remaining: res.headers.get("x-requests-remaining") ?? undefined,
+      used: res.headers.get("x-requests-used") ?? undefined,
+    };
+  }
+
+  const params = new URLSearchParams({ regions, markets, oddsFormat });
   const res = await fetch(
-    `${ODDS_BASE}/sports/${encodeURIComponent(opts.sport)}/odds?${params}`
+    `/api/odds/${encodeURIComponent(opts.sport)}?${params}`
   );
   if (!res.ok) throw new Error(await errorText(res));
   const events = (await res.json()) as EventOdds[];
   return {
     events,
-    remaining: res.headers.get("x-requests-remaining") ?? undefined,
-    used: res.headers.get("x-requests-used") ?? undefined,
+    remaining: res.headers.get("x-requests-remaining") || undefined,
+    used: res.headers.get("x-requests-used") || undefined,
   };
 }
 
